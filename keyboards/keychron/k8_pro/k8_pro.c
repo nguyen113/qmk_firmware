@@ -15,7 +15,6 @@
  */
 
 #include "k8_pro.h"
-#include "print.h"
 #include "keycode_config.h"
 
 #ifdef KC_BLUETOOTH_ENABLE
@@ -79,16 +78,13 @@ bool dip_switch_update_kb(uint8_t index, bool active) {
 
 // Function to update key remappings based on host_idx
 void update_layout(void) {
-    printf("DEBUG: Updating layout with host_idx=%i",host_idx);
 
     if (host_idx == 1) {
         // macOS layout: Swap Option (Alt) and Command (Win)
-        printf("DEBUG: Updating layout to MAC");
         layer_move(0);
 
     } else if (host_idx == 3) {
         // Windows layout: Standard key mappings
-        printf("DEBUG: Updating layout to Win");
         layer_move(2);
     }
 }
