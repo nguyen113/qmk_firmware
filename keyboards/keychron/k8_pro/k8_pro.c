@@ -15,6 +15,9 @@
  */
 
 #include "k8_pro.h"
+#include "print.h"
+#include "keycode_config.h"
+
 #ifdef KC_BLUETOOTH_ENABLE
 #    include "ckbt51.h"
 #    include "bluetooth.h"
@@ -40,7 +43,7 @@ static uint32_t factory_timer_buffer            = 0;
 static uint32_t power_on_indicator_timer_buffer = 0;
 static uint32_t siri_timer_buffer               = 0;
 static uint8_t  mac_keycode[4]                  = {KC_LOPT, KC_ROPT, KC_LCMD, KC_RCMD};
-
+static uint8_t host_idx = 0;
 key_combination_t key_comb_list[4] = {
     {2, {KC_LWIN, KC_TAB}},        // Task (win)
     {2, {KC_LWIN, KC_E}},          // Files (win)
@@ -53,6 +56,7 @@ bool                   firstDisconnect  = true;
 bool                   bt_factory_reset = false;
 static virtual_timer_t pairing_key_timer;
 extern uint8_t         g_pwm_buffer[DRIVER_COUNT][192];
+
 
 static void pairing_key_timer_cb(void *arg) {
     bluetooth_pairing_ex(*(uint8_t *)arg, NULL);
@@ -72,13 +76,28 @@ bool dip_switch_update_kb(uint8_t index, bool active) {
     return true;
 }
 
+
+// Function to update key remappings based on host_idx
+void update_layout(void) {
+    printf("DEBUG: Updating layout with host_idx=%i",host_idx);
+
+    if (host_idx == 1) {
+        // macOS layout: Swap Option (Alt) and Command (Win)
+        printf("DEBUG: Updating layout to MAC");
+        layer_move(0);
+
+    } else if (host_idx == 3) {
+        // Windows layout: Standard key mappings
+        printf("DEBUG: Updating layout to Win");
+        layer_move(2);
+    }
+}
+
 #ifdef KC_BLUETOOTH_ENABLE
 bool process_record_kb_bt(uint16_t keycode, keyrecord_t *record) {
 #else
 bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 #endif
-    static uint8_t host_idx = 0;
-
     switch (keycode) {
         case KC_LOPTN:
         case KC_ROPTN:
@@ -110,10 +129,26 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             }
             return false; // Skip all further processing of this key
 #ifdef KC_BLUETOOTH_ENABLE
-        case BT_HST1 ... BT_HST3:
+        case BT_HST1:
             if (get_transport() == TRANSPORT_BLUETOOTH) {
                 if (record->event.pressed) {
                     host_idx = keycode - BT_HST1 + 1;
+                    default_layer_set(0);
+                    chVTSet(&pairing_key_timer, TIME_MS2I(2000), (vtfunc_t)pairing_key_timer_cb, &host_idx);
+                    bluetooth_connect_ex(host_idx, 0);
+                } else {
+                    host_idx = 0;
+                    chVTReset(&pairing_key_timer);
+                }
+            }
+            break;
+
+        case BT_HST3:
+            if (get_transport() == TRANSPORT_BLUETOOTH) {
+                if (record->event.pressed) {
+                    host_idx = keycode - BT_HST1 + 1;
+
+                    default_layer_set(2);
                     chVTSet(&pairing_key_timer, TIME_MS2I(2000), (vtfunc_t)pairing_key_timer_cb, &host_idx);
                     bluetooth_connect_ex(host_idx, 0);
                 } else {
@@ -125,6 +160,26 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
         case BAT_LVL:
             if (get_transport() == TRANSPORT_BLUETOOTH && !usb_power_connected()) {
                 bat_level_animiation_start(battery_get_percentage());
+            }
+            break;
+        case KC_MAC:
+            if (get_transport() == TRANSPORT_BLUETOOTH) {
+                if (record->event.pressed) {
+                    host_idx=1;
+                    update_layout();
+                    bluetooth_connect_ex(host_idx, 0);
+                }
+                return false;
+            }
+            break;
+        case KC_WIN:
+            if (get_transport() == TRANSPORT_BLUETOOTH) {
+                if (record->event.pressed) {
+                    host_idx=3;
+                    update_layout();
+                    bluetooth_connect_ex(host_idx, 0);
+                }
+                return false;
             }
             break;
 #endif
@@ -320,3 +375,4 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
     }
 }
 #endif
+

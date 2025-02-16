@@ -45,11 +45,15 @@ enum {
     BT_HST2,
     BT_HST3,
     BAT_LVL,
+    KC_MAC,
+    KC_WIN,
 #else
     BT_HST1 = KC_TRNS,
     BT_HST2 = KC_TRNS,
     BT_HST3 = KC_TRNS,
     BAT_LVL = KC_TRNS,
+    KC_MAC = KC_TRNS,
+    KC_WIN = KC_TRNS,
 #endif
 	NEW_SAFE_RANGE
 };
